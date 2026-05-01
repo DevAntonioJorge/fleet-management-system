@@ -1,0 +1,14 @@
+go 1.26.2
+
+use (
+	./cmd/api
+	./cmd/load-test
+	./internal/auth
+	./services/alert
+	./services/telemetry
+	./services/vehicle
+	./shared/config
+	./shared/logger
+	./shared/messaging
+	./shared/metrics
+)
