@@ -33,6 +33,7 @@ type BrokerConfig struct {
 type RabbitMQConfig struct {
 	URL      string
 	Exchange string
+	Queue    string
 }
 
 type KafkaConfig struct {
@@ -55,6 +56,7 @@ func Load() (*Config, error) {
 			RabbitMQ: RabbitMQConfig{
 				URL:      getEnv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/"),
 				Exchange: getEnv("RABBITMQ_EXCHANGE", "fms"),
+				Queue:    getEnv("RABBITMQ_QUEUE", "fms-consumers"),
 			},
 			Kafka: KafkaConfig{
 				Brokers: getEnv("KAFKA_BROKERS", "localhost:9092"),
