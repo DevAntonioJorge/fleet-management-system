@@ -8,6 +8,7 @@ use (
 	./services/telemetry
 	./services/vehicle
 	./shared/config
+	./shared/database
 	./shared/logger
 	./shared/messaging
 	./shared/metrics
