@@ -3,8 +3,10 @@ package database
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // ErrNotFound indicates that a requested record was not found in the database.
@@ -69,6 +71,20 @@ func WrapError(err error) error {
 		return &ErrNotFound{Err: err}
 	}
 
-	// Wrap other pgx errors as Database errors
+	// Check for PostgreSQL constraint violation errors (SQLSTATE class 23)
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && strings.HasPrefix(pgErr.Code, "23") {
+		return &ErrConstraintViolation{Err: err}
+	}
+
+	// Wrap other errors as Database errors
 	return &ErrDatabase{Err: err}
+}
+
+// WrapConstraint wraps a constraint violation error.
+func WrapConstraint(err error) error {
+	if err == nil {
+		return nil
+	}
+	return &ErrConstraintViolation{Err: err}
 }

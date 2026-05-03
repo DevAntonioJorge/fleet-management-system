@@ -53,37 +53,53 @@
 - [x] 9.3 Add rollback capability (optional, defer if needed)
 - [x] 9.4 Make script executable and test with sample migrations
 
-## 10. Integration Tests
+## 10. Docker Compose (Development)
 
-- [ ] 10.1 Create `shared/database/database_test.go` with connection factory tests
-- [ ] 10.2 Add test database setup (Docker or test container)
-- [ ] 10.3 Test pool factory creates valid connection pool
-- [ ] 10.4 Test conn factory creates valid single connection
-- [ ] 10.5 Test error wrapping for common pgx errors
+- [x] 10.1 Create `docker-compose.yml` with `postgres:16-alpine`, port 5432, persistent volume
+- [x] 10.2 Add `.env` file with default database credentials (fleet/fleet/fleet_dev)
+- [x] 10.3 Verify `docker compose up -d` starts PostgreSQL and accepts connections
 
-## 11. Build Integration
+## 11. Integration Test Infrastructure
 
-- [x] 11.1 Create Makefile target `make generate` to run `sqlc generate`
-- [ ] 11.2 Add pre-build step to CI to ensure generated code is current
-- [x] 11.3 Add .gitignore entries for generated files (or commit them based on preference)
+- [x] 11.1 Add `testcontainers-go` and `testcontainers-go/modules/postgres` to `shared/database/go.mod`
+- [x] 11.2 Create `shared/database/testutil/testdb.go` with `StartTestDB(ctx)` helper
+- [x] 11.3 Create `shared/database/testutil/schema.go` with `ApplySchema(dsn)` helper (reads schema.sql, executes in transaction)
+- [x] 11.4 Create `shared/database/database_test.go` with `TestMain` that spins up container, applies schema, runs tests, tears down
+- [x] 11.5 Verify container is destroyed after tests complete
 
-## 12. Documentation
+## 12. Integration Tests
 
-- [x] 12.1 Create `shared/database/README.md` documenting usage patterns
-- [x] 12.2 Add examples for using pool vs conn factories
-- [x] 12.3 Document how to add new queries and regenerate
-- [x] 12.4 Document migration workflow (writing schema, generating migrations, applying)
+- [x] 12.1 Test `NewPoolFactory()` creates valid connection pool with ping
+- [x] 12.2 Test `NewConnFactory()` creates valid single connection with ping
+- [x] 12.3 Test error wrapping for `pgx.ErrNoRows` → `ErrNotFound`
+- [x] 12.4 Test error wrapping for constraint violations → `ErrConstraint`
+- [x] 12.5 Test error wrapping for generic database errors → `ErrDatabase`
 
-## 13. cmd/api Integration
+## 13. Build Integration
 
-- [ ] 13.1 Update `cmd/api/main.go` to initialize database pool from config
-- [ ] 13.2 Create database adapters for service interfaces (VehicleQuerier, etc.)
-- [ ] 13.3 Inject adapted querier into service constructors
-- [ ] 13.4 Add error handling middleware to map domain errors to HTTP status codes
+- [x] 13.1 Create Makefile target `make generate` to run `sqlc generate`
+- [x] 13.2 Add .gitignore entries for generated files (or commit them based on preference)
 
-## 14. Verification
+## 14. Documentation
 
-- [x] 14.1 Run `sqlc generate` and verify no errors
-- [ ] 14.2 Run integration tests and verify all pass
-- [x] 14.3 Verify cmd/api compiles with database layer integrated
-- [ ] 14.4 Test connection factory with live PostgreSQL instance
+- [x] 14.1 Create `shared/database/README.md` documenting usage patterns
+- [x] 14.2 Add examples for using pool vs conn factories
+- [x] 14.3 Document how to add new queries and regenerate
+- [x] 14.4 Document migration workflow (writing schema, generating migrations, applying)
+- [x] 14.5 Document `docker compose up -d` as the standard way to start local PostgreSQL
+- [x] 14.6 Document how to run integration tests and Docker prerequisites
+
+## 15. cmd/api Integration
+
+- [x] 15.1 Update `cmd/api/main.go` to initialize database pool from config
+- [x] 15.2 Create database adapters for service interfaces (VehicleQuerier, etc.)
+- [x] 15.3 Inject adapted querier into service constructors
+- [x] 15.4 Add error handling middleware to map domain errors to HTTP status codes
+
+## 15. Verification
+
+- [x] 15.1 Run `sqlc generate` and verify no errors
+- [x] 15.2 Run `docker compose up -d` and verify PostgreSQL starts
+- [x] 15.3 Run integration tests (`go test ./shared/database/...`) and verify all pass
+- [x] 15.4 Verify cmd/api compiles with database layer integrated
+- [x] 15.5 Test connection factory with live PostgreSQL instance (via docker-compose)

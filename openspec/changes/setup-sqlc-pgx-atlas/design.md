@@ -17,6 +17,7 @@ The FMS project is a modular monolith for fleet telemetry built on go.work. Serv
 - Add advanced ORM features or query builders
 - Optimize schema for specific query patterns (optimize incrementally based on load)
 - Deploy or configure production PostgreSQL instance (assumes postgres is running)
+- Containerize Go services (all services run on host for now)
 
 ## Decisions
 
@@ -106,6 +107,73 @@ if err := repo.GetVehicle(...); err != nil {
 }
 ```
 
+### Decision 7: Docker Compose for local development
+**Choice:** Add `docker-compose.yml` running `postgres:16-alpine` with persistent volume for interactive development  
+**Alternatives Considered:**
+- Manual PostgreSQL install: OS-specific, harder to clean up, inconsistent environments
+- Docker run command: Loses configuration, requires re-typing flags each time
+- Testcontainers only: Great for tests but no persistent dev database
+
+**Rationale:** Developers need a persistent PostgreSQL instance for running the API, testing migrations manually, and browsing data. Docker Compose provides a reproducible, one-command setup. `postgres:16-alpine` is chosen for compatibility with `gen_random_uuid()`, `TIMESTAMPTZ`, and small image footprint.
+
+**Implementation:**
+```yaml
+# docker-compose.yml
+services:
+  postgres:
+    image: postgres:16-alpine
+    ports: ["5432:5432"]
+    environment:
+      POSTGRES_DB: fleet_dev
+      POSTGRES_USER: fleet
+      POSTGRES_PASSWORD: fleet
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+volumes:
+  pgdata:
+```
+- Default DSN: `postgres://fleet:fleet@localhost:5432/fleet_dev`
+- `docker compose up -d` starts it, `docker compose down` stops it
+- Data persists across restarts via named volume
+
+### Decision 8: testcontainers-go for integration tests
+**Choice:** Use `github.com/testcontainers/testcontainers-go` with one container per test package via `TestMain`, execute `schema.sql` directly (not Atlas CLI) for speed  
+**Alternatives Considered:**
+- Fresh container per test: Maximum isolation but ~4s overhead per test (too slow)
+- Container reuse (testcontainers `WithReuse`): Fastest (~0.5s after first run) but risk of stale state between test runs
+- Mocked interfaces only: Fast but doesn't verify SQL queries or schema correctness
+- docker-compose shared DB for tests: No isolation between tests, state leakage
+
+**Rationale:** One container per test package via `TestMain` is the best balance — ~3s startup for the entire package, not per test. Transaction rollback per test ensures isolation. Direct `schema.sql` execution avoids spawning the Atlas CLI, making schema setup faster and simpler.
+
+**Implementation:**
+```
+shared/database/
+├── database_test.go         ← TestMain + individual tests
+└── testutil/
+    └── testdb.go            ← Shared testcontainers helper
+```
+
+`testutil.StartTestDB(ctx)` → starts `postgres:16-alpine` container, returns container handle + DSN
+
+`testutil.ApplySchema(dsn)` → reads `schema.sql`, executes all DDL in a single transaction
+
+`database_test.go` TestMain flow:
+1. `container, dsn := testutil.StartTestDB(ctx)`
+2. `testutil.ApplySchema(dsn)`
+3. `pool := pgxpool.New(ctx, dsn)`
+4. `m.Run()`
+5. Cleanup: `pool.Close()`, `container.Terminate(ctx)`
+
+Individual test isolation via transaction rollback:
+```go
+func TestPoolFactory_CreatesValidPool(t *testing.T) {
+    tx, _ := pool.Begin(ctx)
+    defer tx.Rollback(ctx)  // all changes undone
+    // test logic using tx
+}
+```
+
 ### Decision 6: Build integration for SQLc generation
 **Choice:** Integrate `sqlc generate` into build process (Makefile/CI)  
 **Alternatives Considered:**
@@ -132,6 +200,15 @@ if err := repo.GetVehicle(...); err != nil {
 **[Risk] Dual pool/conn model could lead to inconsistent behavior**  
 → Mitigation: Both implement same Querier interface, tests ensure consistency
 
+**[Risk] testcontainers requires Docker daemon running locally**  
+→ Mitigation: Document Docker as a developer prerequisite; developers without Docker can fall back to docker-compose + manual testing
+
+**[Risk] testcontainers startup time adds to test duration**  
+→ Mitigation: One container per test package (~3s total), not per test; individual tests use tx rollback for fast isolation
+
+**[Risk] Direct schema.sql execution in tests doesn't validate Atlas migration flow**  
+→ Mitigation: Atlas migration is verified manually (task 3.x) and via migrate.sh; test schema execution is a separate concern focused on speed
+
 **[Risk] Atlas may not handle all PostgreSQL features perfectly**  
 → Mitigation: Start with basic schema, escalate complex changes to manual SQL when needed
 
@@ -145,7 +222,9 @@ if err := repo.GetVehicle(...); err != nil {
 2. Create initial schema for Vehicle, TelemetryEvent, Alert
 3. Generate initial migration with Atlas
 4. Implement domain error types
-5. Write integration tests for database layer
+5. Add `docker-compose.yml` for local development
+6. Add `shared/database/testutil/` with testcontainers helper
+7. Write integration tests for database layer (TestMain pattern, tx rollback)
 
 ### Phase 2: Service integration (next change)
 1. Define SQLc queries for each domain
@@ -160,7 +239,7 @@ if err := repo.GetVehicle(...); err != nil {
 
 ## Open Questions
 
-- PostgreSQL version? (Assuming 14+, needed for JSON/UUIDs)
+- PostgreSQL version? (Resolved: `postgres:16-alpine` for dev and tests)
 - Connection pool size for load testing? (Defer to load-test configuration)
 - Do we use UUIDs or serial IDs for vehicle/alert? (Defer to first service implementation)
 - Exact columns for TelemetryEvent (fuel_level units, format)? (Defer to telemetry service spec)

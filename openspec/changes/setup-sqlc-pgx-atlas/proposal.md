@@ -11,6 +11,8 @@ The PRD commits to SQLc for "efficient data access" but the project currently ha
 - Implement domain error types that wrap pgx errors
 - Services will depend on generated SQLc querier interface through domain-specific adapters
 - Create migration script for manual schema application
+- Add `docker-compose.yml` for local PostgreSQL development environment (postgres:16-alpine)
+- Add `shared/database/testutil/` with testcontainers helper for integration tests (one container per test package via TestMain, schema.sql executed directly for speed)
 
 ## Capabilities
 
