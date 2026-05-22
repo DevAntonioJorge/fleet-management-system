@@ -96,7 +96,7 @@ func NewWatermillSubscriber(sub message.Subscriber) *WatermillSubscriber {
 }
 
 type SubscriberFactory interface {
-	CreateSubscriber(url, queue string) (Subscriber, error)
+	CreateSubscriber(url, queue, exchange string) (Subscriber, error)
 }
 
 type RabbitMQSubscriberFactory struct{}
@@ -105,7 +105,7 @@ func NewRabbitMQSubscriberFactory() *RabbitMQSubscriberFactory {
 	return &RabbitMQSubscriberFactory{}
 }
 
-func (f *RabbitMQSubscriberFactory) CreateSubscriber(url, queue string) (Subscriber, error) {
+func (f *RabbitMQSubscriberFactory) CreateSubscriber(url, queue, exchange string) (Subscriber, error) {
 	config := amqp.Config{
 		Connection: amqp.ConnectionConfig{
 			AmqpURI: url,
@@ -121,7 +121,7 @@ func (f *RabbitMQSubscriberFactory) CreateSubscriber(url, queue string) (Subscri
 		},
 		Exchange: amqp.ExchangeConfig{
 			GenerateName: func(topic string) string {
-				return "fms"
+				return exchange
 			},
 			Type:    "topic",
 			Durable: true,

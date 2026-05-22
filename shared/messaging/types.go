@@ -6,6 +6,7 @@ import (
 )
 
 type TelemetryMessage struct {
+	EventID    string    `json:"event_id"`
 	VehicleID  string    `json:"vehicle_id"`
 	Timestamp  time.Time `json:"timestamp"`
 	Latitude   float64   `json:"latitude"`

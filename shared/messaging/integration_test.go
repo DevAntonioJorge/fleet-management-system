@@ -29,7 +29,7 @@ func TestIntegration_PublishSubscribe(t *testing.T) {
 
 	// Create subscriber
 	subFactory := NewRabbitMQSubscriberFactory()
-	subscriber, err := subFactory.CreateSubscriber(url, queue)
+	subscriber, err := subFactory.CreateSubscriber(url, queue, exchange)
 	if err != nil {
 		t.Fatalf("Failed to create subscriber: %v", err)
 	}
